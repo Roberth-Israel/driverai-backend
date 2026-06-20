@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
@@ -16,8 +16,8 @@ async def get_admin_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not current_user.is_premium:
-        return {"error": "Acesso restrito"}
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
 
     total_users = db.query(func.count(User.id)).scalar()
     total_rides = db.query(func.count(Ride.id)).scalar()
@@ -39,8 +39,8 @@ async def get_daily_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not current_user.is_premium:
-        return {"error": "Acesso restrito"}
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
 
     since = datetime.utcnow() - timedelta(days=days)
     daily_stats = (

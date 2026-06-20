@@ -5,7 +5,7 @@ from typing import Optional
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
-from app.models.region import HotZone
+from app.models.region import HotZone, Region
 from app.schemas.hotzone import HotZoneListResponse, HotZoneResponse
 
 router = APIRouter()
@@ -19,12 +19,12 @@ async def get_hot_zones(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = db.query(HotZone).filter(HotZone.is_active == 1)
+    query = db.query(HotZone).join(Region).filter(HotZone.is_active == 1)
 
     if lat and lng and radius:
         query = query.filter(
-            HotZone.latitude.between(lat - radius, lat + radius),
-            HotZone.longitude.between(lng - radius, lng + radius),
+            Region.latitude.between(lat - radius, lat + radius),
+            Region.longitude.between(lng - radius, lng + radius),
         )
 
     zones = query.order_by(desc(HotZone.profitability_score)).limit(50).all()
@@ -33,9 +33,9 @@ async def get_hot_zones(
     for z in zones:
         result.append(HotZoneResponse(
             id=str(z.id),
-            name=z.region.name if z.region else "Unknown",
-            latitude=z.region.latitude if z.region else 0,
-            longitude=z.region.longitude if z.region else 0,
+            name=z.region.name,
+            latitude=z.region.latitude,
+            longitude=z.region.longitude,
             demand_intensity=z.demand_intensity,
             average_earnings_per_hour=z.average_earnings_per_hour,
             average_earnings_per_km=z.average_earnings_per_km,
@@ -61,7 +61,7 @@ async def get_hot_zones(
 
 def _get_score_color(score: int) -> str:
     if score >= 80: return "#4CAF50"
-    if score >= 60: return "#FF9800"
+    if score >= 60: return "#8BC34A"
     if score >= 40: return "#FFC107"
-    if score >= 20: return "#8BC34A"
+    if score >= 20: return "#FF9800"
     return "#F44336"

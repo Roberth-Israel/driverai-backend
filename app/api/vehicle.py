@@ -59,10 +59,10 @@ async def save_vehicle(
 
 
 def _vehicle_to_response(v: Vehicle) -> VehicleResponse:
-    if v.fuel_type == "electric" and v.energy_consumption_kwh_per_km and v.energy_price_per_kwh:
-        cost_per_km = v.energy_consumption_kwh_per_km * v.energy_price_per_kwh
+    if v.fuel_type == "electric":
+        cost_per_km = (v.energy_consumption_kwh_per_km or 0) * (v.energy_price_per_kwh or 0)
     else:
-        cost_per_km = v.fuel_price_per_liter / v.fuel_consumption_km_per_liter if v.fuel_consumption_km_per_liter > 0 else 0
+        cost_per_km = v.fuel_price_per_liter / v.fuel_consumption_km_per_liter if v.fuel_consumption_km_per_liter and v.fuel_consumption_km_per_liter > 0 else 0
 
     return VehicleResponse(
         id=str(v.id),

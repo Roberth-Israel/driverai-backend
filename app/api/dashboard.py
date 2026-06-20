@@ -20,39 +20,44 @@ async def get_dashboard(
     now = datetime.utcnow()
 
     if period == "day":
-        since = now - timedelta(days=1)
+        display_since = now - timedelta(days=1)
     elif period == "week":
-        since = now - timedelta(weeks=1)
+        display_since = now - timedelta(weeks=1)
     else:
-        since = now - timedelta(days=30)
+        display_since = now - timedelta(days=30)
 
-    rides = db.query(Ride).filter(
+    base_query = db.query(Ride).filter(
         Ride.user_id == current_user.id,
-        Ride.created_at >= since,
         Ride.status == "completed",
-    ).all()
+    )
 
-    total_earnings = sum(r.driver_earnings for r in rides)
-    total_fuel = sum(r.fuel_cost for r in rides)
-    total_distance = sum(r.distance_km for r in rides)
-    total_duration = sum(r.duration_minutes for r in rides)
-    accepted = sum(1 for r in rides if r.accepted)
-    rejected = sum(1 for r in rides if not r.accepted)
+    all_rides = base_query.filter(Ride.created_at >= now - timedelta(days=30)).all()
 
-    recent = db.query(Ride).filter(
-        Ride.user_id == current_user.id,
-    ).order_by(desc(Ride.created_at)).limit(20).all()
+    display_rides = [r for r in all_rides if r.created_at >= display_since]
+
+    daily_rides = [r for r in all_rides if r.created_at >= now - timedelta(days=1)]
+    weekly_rides = [r for r in all_rides if r.created_at >= now - timedelta(weeks=1)]
+    monthly_rides = [r for r in all_rides if r.created_at >= now - timedelta(days=30)]
+
+    total_earnings = sum(r.driver_earnings for r in display_rides)
+    total_fuel = sum(r.fuel_cost for r in display_rides)
+    total_distance = sum(r.distance_km for r in display_rides)
+    total_duration = sum(r.duration_minutes for r in display_rides)
+    accepted = sum(1 for r in display_rides if r.accepted)
+    rejected = sum(1 for r in display_rides if not r.accepted)
+
+    recent = base_query.order_by(desc(Ride.created_at)).limit(20).all()
 
     return DashboardResponse(
-        daily_earnings=sum(r.driver_earnings for r in rides if r.created_at >= now - timedelta(days=1)),
-        weekly_earnings=sum(r.driver_earnings for r in rides if r.created_at >= now - timedelta(weeks=1)),
-        monthly_earnings=sum(r.driver_earnings for r in rides if r.created_at >= now - timedelta(days=30)),
+        daily_earnings=sum(r.driver_earnings for r in daily_rides),
+        weekly_earnings=sum(r.driver_earnings for r in weekly_rides),
+        monthly_earnings=sum(r.driver_earnings for r in monthly_rides),
         net_profit=total_earnings - total_fuel,
         fuel_cost=total_fuel,
         energy_cost=0,
         avg_per_hour=total_earnings / (total_duration / 60) if total_duration > 0 else 0,
         avg_per_km=total_earnings / total_distance if total_distance > 0 else 0,
-        total_rides=len(rides),
+        total_rides=len(display_rides),
         accepted_rides=accepted,
         rejected_rides=rejected,
         avg_rating=current_user.avg_rating,

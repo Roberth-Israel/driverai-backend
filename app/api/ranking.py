@@ -1,33 +1,38 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc
 from typing import Optional
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
-from app.models.region import HotZone
+from app.models.region import HotZone, Region
 from app.schemas.ranking import RankingResponse, RankingRegion
 
 router = APIRouter()
 
+VALID_SORT = ["profitability", "demand", "distance", "earnings"]
+
 
 @router.get("/ranking", response_model=RankingResponse)
 async def get_ranking(
-    sort_by: str = Query("profitability", enum=["profitability", "demand", "distance", "earnings"]),
+    sort_by: str = Query("profitability"),
     lat: Optional[float] = None,
     lng: Optional[float] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = db.query(HotZone).filter(HotZone.is_active == 1)
+    if sort_by not in VALID_SORT:
+        raise HTTPException(status_code=400, detail=f"sort_by inválido. Opções: {VALID_SORT}")
+
+    query = db.query(HotZone).join(Region).filter(HotZone.is_active == 1)
 
     sort_map = {
         "profitability": desc(HotZone.profitability_score),
         "demand": desc(HotZone.demand_intensity),
-        "distance": asc(HotZone.average_wait_time),
+        "distance": asc(HotZone.demand_intensity),
         "earnings": desc(HotZone.average_earnings_per_hour),
     }
-    query = query.order_by(sort_map.get(sort_by, desc(HotZone.profitability_score)))
+    query = query.order_by(sort_map[sort_by])
 
     zones = query.limit(50).all()
 
@@ -35,9 +40,9 @@ async def get_ranking(
     for z in zones:
         regions.append(RankingRegion(
             id=str(z.id),
-            name=z.region.name if z.region else "Unknown",
-            latitude=z.region.latitude if z.region else 0,
-            longitude=z.region.longitude if z.region else 0,
+            name=z.region.name,
+            latitude=z.region.latitude,
+            longitude=z.region.longitude,
             demand_intensity=z.demand_intensity,
             average_earnings_per_hour=z.average_earnings_per_hour,
             average_earnings_per_km=z.average_earnings_per_km,
@@ -53,7 +58,7 @@ async def get_ranking(
 
 def _get_score_color(score: int) -> str:
     if score >= 80: return "#4CAF50"
-    if score >= 60: return "#FF9800"
+    if score >= 60: return "#8BC34A"
     if score >= 40: return "#FFC107"
-    if score >= 20: return "#8BC34A"
+    if score >= 20: return "#FF9800"
     return "#F44336"

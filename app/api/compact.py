@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
-from app.models.region import HotZone
+from app.models.region import HotZone, Region
 from app.ml.terrain_predictor import TerrainPredictor
 
 router = APIRouter()
@@ -42,7 +42,7 @@ async def get_compact_feed(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    zones = db.query(HotZone).filter(
+    zones = db.query(HotZone).join(Region).filter(
         HotZone.is_active == 1
     ).order_by(desc(HotZone.profitability_score)).limit(limit).all()
 
@@ -67,8 +67,8 @@ async def get_compact_feed(
         terrain_result = predictor.predict(
             origem_lat=lat or -23.5505,
             origem_lng=lng or -46.6333,
-            dest_lat=z.region.latitude if z.region else -23.5505,
-            dest_lng=z.region.longitude if z.region else -46.6333,
+            dest_lat=z.region.latitude,
+            dest_lng=z.region.longitude,
         )
 
         offers.append(CompactOffer(
@@ -91,17 +91,21 @@ async def get_compact_feed(
     return CompactFeedResponse(offers=offers, total=len(offers), has_good_offers=has_good)
 
 
+class EvaluateRideRequest(BaseModel):
+    origem_lat: float
+    origem_lng: float
+    dest_lat: float
+    dest_lng: float
+
+
 @router.post("/compact/evaluate-ride", response_model=CompactOffer)
 async def evaluate_ride(
-    origem_lat: float,
-    origem_lng: float,
-    dest_lat: float,
-    dest_lng: float,
+    req: EvaluateRideRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    terrain = predictor.predict(origem_lat, origem_lng, dest_lat, dest_lng)
-    dist = predictor._haversine(origem_lat, origem_lng, dest_lat, dest_lng)
+    terrain = predictor.predict(req.origem_lat, req.origem_lng, req.dest_lat, req.dest_lng)
+    dist = predictor._haversine(req.origem_lat, req.origem_lng, req.dest_lat, req.dest_lng)
 
     return CompactOffer(
         id="eval_1",

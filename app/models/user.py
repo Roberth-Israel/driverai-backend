@@ -16,6 +16,7 @@ class User(Base):
     avatar_url = Column(String(500))
     is_active = Column(Boolean, default=True)
     is_premium = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
     total_rides = Column(Integer, default=0)
     total_earnings = Column(Float, default=0.0)
     avg_rating = Column(Float, default=5.0)

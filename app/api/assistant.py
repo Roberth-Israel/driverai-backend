@@ -4,7 +4,7 @@ from sqlalchemy import desc
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
-from app.models.region import HotZone
+from app.models.region import HotZone, Region
 from app.schemas.assistant import ChatRequest, ChatResponse
 from app.ml.chat_engine import ChatEngine
 
@@ -18,13 +18,13 @@ async def chat(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    hot_zones = db.query(HotZone).filter(
+    hot_zones = db.query(HotZone).join(Region).filter(
         HotZone.is_active == 1
     ).order_by(desc(HotZone.profitability_score)).limit(10).all()
 
     zones_data = [
         {
-            "name": z.region.name if z.region else "Unknown",
+            "name": z.region.name,
             "score": z.profitability_score,
             "earnings_per_hour": z.average_earnings_per_hour,
             "wait_time": z.average_wait_time,

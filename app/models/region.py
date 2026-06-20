@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Float, Integer, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
@@ -30,6 +31,7 @@ class HotZone(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     region_id = Column(UUID(as_uuid=True), ForeignKey("regions.id"), nullable=False)
+    region = relationship("Region", backref="hot_zones")
     demand_intensity = Column(Float, default=0.0)
     average_earnings_per_hour = Column(Float, default=0.0)
     average_earnings_per_km = Column(Float, default=0.0)
