@@ -2,4 +2,3 @@ driverai_pro.db
 *.pyc
 __pycache__/
 .env
-apk/
